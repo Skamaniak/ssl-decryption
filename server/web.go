@@ -33,6 +33,7 @@ func sum(c chan int64) int64 {
 	}
 }
 
+// Connection
 type Connection struct {
 	ConnFromProxy net.Conn
 	ConnToRemote  net.Conn
@@ -45,6 +46,8 @@ func (c *Connection) String() string {
 
 func (c *Connection) pump() {
 	fmt.Printf("Starting %v\n", c.String())
+	defer func() { _ = c.ConnFromProxy.Close() }()
+	defer func() { _ = c.ConnToRemote.Close() }()
 
 	upload := make(chan int64)
 	go pumpData(c.ConnFromProxy, c.ConnToRemote, upload)
@@ -56,7 +59,20 @@ func (c *Connection) pump() {
 	fmt.Printf("Closing %v, transferred %d\n", c.String(), dataTransferred)
 }
 
-func handleConnection(ss *session.Store, connFromProxy net.Conn) {
+// WebServer
+type WebServer struct {
+	certSpoofer *crypto.CertSpoofer
+}
+
+func NewWebServer() (*WebServer, error) {
+	spoofer, err := crypto.NewCertSpoofer()
+	if err != nil {
+		return nil, err
+	}
+	return &WebServer{certSpoofer: spoofer}, nil
+}
+
+func (_ *WebServer) handleConnection(ss *session.Store, connFromProxy net.Conn) {
 	ephemeralProxyPort := connFromProxy.RemoteAddr().(*net.TCPAddr).Port
 	sess := <-ss.GetSession(ephemeralProxyPort)
 	tlsConf := &tls.Config{}
@@ -75,9 +91,13 @@ func handleConnection(ss *session.Store, connFromProxy net.Conn) {
 	connection.pump()
 }
 
-func StartServer(ss *session.Store) error {
+func (ws *WebServer) returnCert(helloInfo *tls.ClientHelloInfo) (*tls.Certificate, error) {
+	return ws.certSpoofer.GenerateSpoofedServerCertificate(helloInfo.ServerName)
+}
+
+func (ws *WebServer) StartServer(ss *session.Store) error {
 	config := &tls.Config{
-		GetCertificate: returnCert,
+		GetCertificate: ws.returnCert,
 	}
 	wsHost := viper.GetString(conf.WebServerHost)
 	ln, err := tls.Listen("tcp", wsHost, config)
@@ -95,15 +115,11 @@ func StartServer(ss *session.Store) error {
 		}
 		go func() {
 			atomic.AddInt32(&counter, 1)
-			handleConnection(ss, connFromProxy)
+			ws.handleConnection(ss, connFromProxy)
 			atomic.AddInt32(&counter, -1)
 			fmt.Printf("Current connection count is %d\n", counter)
 		}()
 	}
 
 	return nil
-}
-
-func returnCert(helloInfo *tls.ClientHelloInfo) (*tls.Certificate, error) {
-	return crypto.GenerateSpoofedServerCertificate(helloInfo.ServerName)
 }

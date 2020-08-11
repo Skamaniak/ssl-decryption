@@ -11,9 +11,9 @@ import (
 
 func StartProxy(ss *session.Store) error {
 	proxy := goproxy.NewProxyHttpServer()
+	proxyHost := viper.GetString(conf.ProxyServerHost)
 	dialer := &net.Dialer{}
 	wsHost := viper.GetString(conf.WebServerHost)
-	proxyHost := viper.GetString(conf.ProxyServerHost)
 
 	proxy.ConnectDial = func(network string, addr string) (net.Conn, error) {
 		conn, err := dialer.Dial("tcp", wsHost)
@@ -23,7 +23,7 @@ func StartProxy(ss *session.Store) error {
 
 		// Save session details under the ephemeral port key
 		ephemeralPort := conn.LocalAddr().(*net.TCPAddr).Port
-		ss.PutSession(ephemeralPort, session.Session{Address: addr})
+		go ss.PutSession(ephemeralPort, session.Session{Address: addr})
 
 		return conn, err
 	}

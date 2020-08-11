@@ -17,7 +17,9 @@ func InitConfig() {
 	viper.SetDefault(CaCertLocation, "assets/myCA.pem")
 	viper.SetDefault(CaKeyLocation, "assets/myCA.key")
 	viper.SetDefault(CaKeyPassword, "changeit")
+
 	viper.SetDefault(WebServerHost, "0.0.0.0:8443")
 	viper.SetDefault(ProxyServerHost, "0.0.0.0:8080")
+
 	viper.SetDefault(SpoofedCertValidityYears, 1)
 }

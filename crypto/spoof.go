@@ -14,7 +14,33 @@ import (
 	"time"
 )
 
-func spoofCertificate(domain string) *x509.Certificate {
+func readCertificationAuthority() (CertificationAuthority, error) {
+	caCertLocation := viper.GetString(conf.CaCertLocation)
+	caKeyLocation := viper.GetString(conf.CaKeyLocation)
+	caKeyPassword := viper.GetString(conf.CaKeyPassword)
+	return ReadCertificationAuthority(caCertLocation, caKeyLocation, caKeyPassword)
+}
+
+func NewCertSpoofer() (*CertSpoofer, error) {
+	ca, err := readCertificationAuthority()
+	if err != nil {
+		return nil, err
+	}
+	// Generate one and use it for signing all the generated certs #security :P
+	privKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		return nil, err
+	}
+	certSpoofer := CertSpoofer{certAuthority: ca, privateKey: privKey}
+	return &certSpoofer, nil
+}
+
+type CertSpoofer struct {
+	certAuthority CertificationAuthority
+	privateKey    *rsa.PrivateKey
+}
+
+func (c *CertSpoofer) spoofCertificate(domain string) *x509.Certificate {
 	validityYears := viper.GetInt(conf.SpoofedCertValidityYears)
 
 	return &x509.Certificate{
@@ -36,29 +62,12 @@ func spoofCertificate(domain string) *x509.Certificate {
 	}
 }
 
-func readCertificationAuthority() (CertificationAuthority, error) {
-	caCertLocation := viper.GetString(conf.CaCertLocation)
-	caKeyLocation := viper.GetString(conf.CaKeyLocation)
-	caKeyPassword := viper.GetString(conf.CaKeyPassword)
-	return ReadCertificationAuthority(caCertLocation, caKeyLocation, caKeyPassword)
-}
-
-func GenerateSpoofedServerCertificate(domain string) (*tls.Certificate, error) {
-	ca, err := readCertificationAuthority()
-	if err != nil {
-		return nil, err
-	}
-
-	cert := spoofCertificate(domain)
-
-	var spoofedCertPrivKey *rsa.PrivateKey
-	spoofedCertPrivKey, err = rsa.GenerateKey(rand.Reader, 4096)
-	if err != nil {
-		return nil, err
-	}
+func (c *CertSpoofer) GenerateSpoofedServerCertificate(domain string) (*tls.Certificate, error) {
+	cert := c.spoofCertificate(domain)
 
 	var spoofedCertBytes []byte
-	spoofedCertBytes, err = x509.CreateCertificate(rand.Reader, cert, ca.Cert, &spoofedCertPrivKey.PublicKey, ca.PrivateKey)
+	ca := c.certAuthority
+	spoofedCertBytes, err := x509.CreateCertificate(rand.Reader, cert, ca.Cert, &c.privateKey.PublicKey, ca.PrivateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +84,7 @@ func GenerateSpoofedServerCertificate(domain string) (*tls.Certificate, error) {
 	spoofedCertPrivKeyPem := new(bytes.Buffer)
 	err = pem.Encode(spoofedCertPrivKeyPem, &pem.Block{
 		Type:  "RSA PRIVATE KEY",
-		Bytes: x509.MarshalPKCS1PrivateKey(spoofedCertPrivKey),
+		Bytes: x509.MarshalPKCS1PrivateKey(c.privateKey),
 	})
 	if err != nil {
 		return nil, err

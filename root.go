@@ -12,8 +12,8 @@ func main() {
 	sessionStore := session.NewSessionStore()
 
 	go func() {
-		_ = server.StartServer(sessionStore)
-
+		srvr, _ := server.NewWebServer()
+		_ = srvr.StartServer(sessionStore)
 	}()
 
 	_ = proxy.StartProxy(sessionStore)

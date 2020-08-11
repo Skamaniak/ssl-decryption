@@ -11,7 +11,7 @@ This app was build solely for educational purposes. I did that to learn how the 
 ## Details 
  * See `conf/configuration.go` for configuration options
  * In default the transparent proxy runs on 0.0.0.0:8080
- * In default the internal web server for SSL spoofing runs on 0.0.0.0:8080
+ * In default the internal web server for SSL spoofing runs on 0.0.0.0:8443
 
 ## Setup
 Generate certification authority (https://deliciousbrains.com/ssl-certificate-authority-for-local-https-development/)

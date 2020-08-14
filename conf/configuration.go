@@ -10,6 +10,7 @@ const CaKeyPassword = "CA_KEY_PASSWORD"
 const SpoofedCertValidityYears = "SPOOFED_CERT_VALIDITY_YEARS"
 const WebServerHost = "WEB_SERVER_HOST"
 const ProxyServerHost = "PROXY_SERVER_HOST"
+const ContentExtractionRule = "CONTENT_EXTRACTION_RULE"
 
 func InitConfig() {
 	viper.AutomaticEnv()
@@ -20,6 +21,10 @@ func InitConfig() {
 
 	viper.SetDefault(WebServerHost, "0.0.0.0:8443")
 	viper.SetDefault(ProxyServerHost, "0.0.0.0:8080")
+
+	// Whenever the content matching this regex is intercepted the content of "extract" match group is logged
+	// In default it logs Google search queries
+	viper.SetDefault(ContentExtractionRule, "/search.*[&?]q=(?P<extract>[^&]+)")
 
 	viper.SetDefault(SpoofedCertValidityYears, 1)
 }

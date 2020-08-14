@@ -6,15 +6,50 @@ import (
 	"github.com/spf13/viper"
 	"io"
 	"net"
+	"net/url"
+	"regexp"
 	"ssl-decryption/conf"
 	"ssl-decryption/crypto"
 	"ssl-decryption/session"
-	"sync/atomic"
 )
 
-func pumpData(from net.Conn, to net.Conn, dataTransferred chan int64) {
+func getIndex(arr []string, itm string) int {
+	for i, v := range arr {
+		if v == itm {
+			return i
+		}
+	}
+	return -1
+}
+
+type scanningWriter struct {
+	inner          io.Writer
+	extractorRegex *regexp.Regexp
+}
+
+func (c scanningWriter) Write(p []byte) (n int, err error) {
+	match := c.extractorRegex.FindStringSubmatch(string(p))
+	ind := getIndex(c.extractorRegex.SubexpNames(), "extract")
+	if ind >= 0 && len(match) >= ind+1 {
+		q, err := url.QueryUnescape(match[ind])
+		if err == nil {
+			fmt.Printf("Found content matching extractor: %v\n", q)
+		}
+	}
+
+	return c.inner.Write(p)
+}
+
+func pumpData(to net.Conn, from net.Conn, dataTransferred chan int64) {
+	//TODO move this to some more convenient place
+	ce := viper.GetString(conf.ContentExtractionRule)
+	writer := scanningWriter{
+		inner:          to,
+		extractorRegex: regexp.MustCompile(ce),
+	}
+
 	//TODO add net.Con.SetDeadline?
-	written, err := io.Copy(from, to)
+	written, err := io.Copy(writer, from)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -50,13 +85,13 @@ func (c *Connection) pump() {
 	defer func() { _ = c.ConnToRemote.Close() }()
 
 	upload := make(chan int64)
-	go pumpData(c.ConnFromProxy, c.ConnToRemote, upload)
+	go pumpData(c.ConnToRemote, c.ConnFromProxy, upload)
 
 	download := make(chan int64)
-	go pumpData(c.ConnToRemote, c.ConnFromProxy, download)
+	go pumpData(c.ConnFromProxy, c.ConnToRemote, download)
 
-	dataTransferred := sum(upload) + sum(download)
-	fmt.Printf("Closing %v, transferred %d\n", c.String(), dataTransferred)
+	dataTransferred := sum(download) + sum(upload)
+	fmt.Printf("Closing %v, transferred %d bytes\n", c.String(), dataTransferred)
 }
 
 // WebServer
@@ -100,25 +135,20 @@ func (ws *WebServer) StartServer(ss *session.Store) error {
 		GetCertificate: ws.returnCert,
 	}
 	wsHost := viper.GetString(conf.WebServerHost)
+	fmt.Println("Starting internal TCP server on", wsHost)
 	ln, err := tls.Listen("tcp", wsHost, config)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = ln.Close() }()
 
-	var counter int32
 	for {
 		connFromProxy, err := ln.Accept()
 		if err != nil {
 			fmt.Println("failed to accept connection", err)
 			break
 		}
-		go func() {
-			atomic.AddInt32(&counter, 1)
-			ws.handleConnection(ss, connFromProxy)
-			atomic.AddInt32(&counter, -1)
-			fmt.Printf("Current connection count is %d\n", counter)
-		}()
+		go ws.handleConnection(ss, connFromProxy)
 	}
 
 	return nil

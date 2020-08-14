@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"fmt"
 	"github.com/elazarl/goproxy"
 	"github.com/spf13/viper"
 	"net"
@@ -28,5 +29,6 @@ func StartProxy(ss *session.Store) error {
 		return conn, err
 	}
 
+	fmt.Println("Starting HTTP proxy on", proxyHost)
 	return http.ListenAndServe(proxyHost, proxy)
 }

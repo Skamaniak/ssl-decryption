@@ -46,10 +46,10 @@ func (c *CertSpoofer) spoofCertificate(domain string) *x509.Certificate {
 	return &x509.Certificate{
 		SerialNumber: big.NewInt(1658),
 		Subject: pkix.Name{
-			Organization:  []string{"You've been pwned my buddy!"},
+			Organization:  []string{"You've been pwned buddy!"},
 			Country:       []string{"US"},
 			Province:      []string{""},
-			Locality:      []string{"Secretvill"},
+			Locality:      []string{"Secretville"},
 			StreetAddress: []string{"Concealed"},
 			PostalCode:    []string{"314159"},
 		},

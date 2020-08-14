@@ -19,9 +19,14 @@ Generate certification authority (https://deliciousbrains.com/ssl-certificate-au
 2) `openssl req -x509 -new -nodes -key myCA.key -sha256 -days 1825 -out myCA.pem` 
 3) Configure the app to use these generated key and cert
 4) Run the app
-5) Import the myCA.pem into [Chrome](chrome://settings/security) under `Trusted Root Certification Authorities`
+5) Import the myCA.pem into [Chrome](chrome://settings/security) under `Trusted Root Certification Authorities` (windows) or into the key-chain (Mac) - [More details can be found here](https://deliciousbrains.com/ssl-certificate-authority-for-local-https-development/)
 6) Setup the HTTPS proxy (e.g. using [SwitchyOmega](https://chrome.google.com/webstore/detail/proxy-switchyomega/padekgcemlokbadohgkifijomclgjgif?hl=en))
 7) Test going to an HTTPS site and check the certificate details. They should resemble what is in `crypto/spoof.go#spoofCertificate`
+
+## How do I find if it's working?
+ * HTTPS pages render fine in the chrome browser (no security warning)
+ * After clicking the small lock icon next to the domain in the address bar and selecting Certificate option you should see the spoofed cert
+ * Logs of the app should show connections going through
 
 ## Sources used during the implementation
 * https://deliciousbrains.com/ssl-certificate-authority-for-local-https-development/

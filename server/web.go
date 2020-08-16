@@ -110,7 +110,9 @@ func NewWebServer() (*WebServer, error) {
 func (_ *WebServer) handleConnection(ss *session.Store, connFromProxy net.Conn) {
 	ephemeralProxyPort := connFromProxy.RemoteAddr().(*net.TCPAddr).Port
 	sess := <-ss.GetSession(ephemeralProxyPort)
-	tlsConf := &tls.Config{}
+	tlsConf := &tls.Config{
+		InsecureSkipVerify: viper.GetBool(conf.AllowInsecureRemoteConnections),
+	}
 	connToRemote, err := tls.Dial("tcp", sess.Address, tlsConf)
 	if err != nil {
 		fmt.Println("failed to dial "+sess.Address, err)
